@@ -6,8 +6,10 @@ import (
 )
 
 type App struct {
-	conn *dbus.Conn
-	obj  *dbus.Object
+	conn  *dbus.Conn
+	obj   *dbus.Object
+	Name  string
+	Owner string
 }
 
 func (a *App) Introspect() (*introspect.Node, error) {
@@ -15,7 +17,7 @@ func (a *App) Introspect() (*introspect.Node, error) {
 }
 
 func (a *App) Player() Player {
-	return Player{a.conn, a.obj}
+	return Player{a.conn, a.obj, a}
 }
 
 func (a *App) Properties() Properties {

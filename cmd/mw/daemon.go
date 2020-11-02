@@ -121,20 +121,25 @@ func (s *State) SetCurrentApp(name string) *dbus.Error {
 	return nil
 }
 
+func (s *State) setApp(app mpris.App) {
+	log.Println("Setting current app to:", app.Name)
+	s.CurrentApp = app
+}
+
 func (s *State) selectApp() {
 	apps := s.client.Apps()
 	if len(apps) == 0 {
 		log.Fatal("Unable to connect to any music players")
 	}
 
-	s.CurrentApp = apps[0]
 	for _, app := range apps {
 		player := app.Player()
 		if player.PlaybackStatus() == mpris.PlaybackPlaying {
-			s.CurrentApp = app
-			break
+			s.setApp(app)
+			return
 		}
 	}
+	s.setApp(apps[0])
 }
 
 //
@@ -164,6 +169,17 @@ func RunDaemon() {
 	server.PlayerServer = &playerServer{&player}
 
 	server.AddInterface("com.github.shreve.musicwand", &state)
+
+	go func() {
+		events, _ := client.OnAnyPlayerChange()
+		for {
+			event := <-events
+			app := client.AppWithOwner(event.Sender)
+			if app != nil {
+				state.setApp(*app)
+			}
+		}
+	}()
 
 	if err := server.Listen(); err != nil {
 		log.Fatal(err)

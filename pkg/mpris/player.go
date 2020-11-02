@@ -2,11 +2,13 @@ package mpris
 
 import (
 	"github.com/godbus/dbus/v5"
+	"log"
 )
 
 type Player struct {
 	conn *dbus.Conn
 	obj  *dbus.Object
+	app  *App
 }
 
 type PlaybackState string
@@ -158,6 +160,21 @@ func (p *Player) OnSeek() (chan *dbus.Signal, error) {
 	c := make(chan *dbus.Signal, 10)
 	err := p.conn.AddMatchSignal(
 		dbus.WithMatchInterface(playerInterface),
+	)
+	if err != nil {
+		return c, err
+	}
+	p.conn.Signal(c)
+	return c, nil
+}
+
+func (p *Player) OnChange() (chan *dbus.Signal, error) {
+	log.Println("OnChange", p.obj.Destination())
+	c := make(chan *dbus.Signal, 10)
+	err := p.conn.AddMatchSignal(
+		// dbus.WithMatchSender(p.app.Owner),
+		dbus.WithMatchObjectPath(objectPath),
+		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
 	)
 	if err != nil {
 		return c, err

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/shreve/musicwand/internal/pkg/musicwand"
 	"github.com/shreve/musicwand/pkg/mpris"
 	"github.com/urfave/cli/v2"
 )
@@ -14,6 +15,7 @@ func main() {
 		os.Exit(0)
 	}
 
+	var client *mpris.Client
 	var app *mpris.App
 	var player mpris.Player
 
@@ -21,15 +23,15 @@ func main() {
 		Name:  "mw",
 		Usage: "magically control your local media players",
 		Before: func(c *cli.Context) error {
-			client, err := mpris.NewClient()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, err.Error())
-				os.Exit(1)
-			}
+			client, _ = mpris.NewClient()
+			// if err != nil {
+			// 	fmt.Fprintf(os.Stderr, err.Error())
+			// 	os.Exit(1)
+			// }
 
 			app = client.FindApp("musicwand")
-			if app.Identity() == "" {
-				fmt.Fprintf(os.Stderr, "Couldn't find the musicwand daemon")
+			if app == nil {
+				fmt.Fprintf(os.Stderr, "Couldn't find the musicwand daemon\n")
 				os.Exit(1)
 			}
 			player = app.Player()
@@ -119,6 +121,26 @@ func main() {
 				Usage: "Run the musicwand control daemon",
 				Action: func(c *cli.Context) error {
 					RunDaemon()
+					return nil
+				},
+			},
+			{
+				Name:  "watch",
+				Usage: "Tail a log of events monitored by this library",
+				Action: func(c *cli.Context) error {
+					events, _ := client.OnAnyPlayerChange()
+					for {
+						event := <-events
+						app := client.AppWithOwner(event.Sender)
+						fmt.Println("CHANGE", app.Name, event.Body[1])
+					}
+				},
+			},
+			{
+				Name:  "status",
+				Usage: "Get a pretty formatted status of current music player",
+				Action: func(c *cli.Context) error {
+					fmt.Println(musicwand.FormatStatus("{icon} {artist} :: {track} ({position}/{length})", app))
 					return nil
 				},
 			},
