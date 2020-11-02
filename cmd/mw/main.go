@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/shreve/musicwand/internal/pkg/musicwand"
 	"github.com/shreve/musicwand/pkg/mpris"
@@ -16,25 +17,23 @@ func main() {
 	}
 
 	var client *mpris.Client
-	var app *mpris.App
-	var player mpris.Player
+	var player *mpris.Player
 
 	cliApp := cli.App{
 		Name:  "mw",
 		Usage: "magically control your local media players",
-		Before: func(c *cli.Context) error {
-			client, _ = mpris.NewClient()
-			// if err != nil {
-			// 	fmt.Fprintf(os.Stderr, err.Error())
-			// 	os.Exit(1)
-			// }
+		Before: func(c *cli.Context) (err error) {
+			client, err = mpris.NewClient()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, err.Error())
+				os.Exit(1)
+			}
 
-			app = client.FindApp("musicwand")
-			if app == nil {
+			player = client.FindPlayer("musicwand")
+			if player == nil {
 				fmt.Fprintf(os.Stderr, "Couldn't find the musicwand daemon\n")
 				os.Exit(1)
 			}
-			player = app.Player()
 			return nil
 		},
 		Flags: []cli.Flag{
@@ -110,8 +109,13 @@ func main() {
 				Usage: "Get all available metadata about the current media",
 				Action: func(c *cli.Context) error {
 					meta := player.RawMetadata()
-					for key, value := range meta {
-						fmt.Println(key, "\t", value)
+					list := make([]string, 0)
+					for key, _ := range meta {
+						list = append(list, key)
+					}
+					sort.Strings(list)
+					for _, key := range list {
+						fmt.Println(key, "\t", meta[key])
 					}
 					return nil
 				},
@@ -131,16 +135,31 @@ func main() {
 					events, _ := client.OnAnyPlayerChange()
 					for {
 						event := <-events
-						app := client.AppWithOwner(event.Sender)
-						fmt.Println("CHANGE", app.Name, event.Body[1])
+						player := client.PlayerWithOwner(event.Sender)
+						fmt.Println("CHANGE", player.Name, event.Body[1])
 					}
 				},
 			},
 			{
 				Name:  "status",
 				Usage: "Get a pretty formatted status of current music player",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "watch",
+						Aliases: []string{"w"},
+						Usage:   "Maintain a process that updates the status when it changes",
+					},
+				},
 				Action: func(c *cli.Context) error {
-					fmt.Println(musicwand.FormatStatus("{icon} {artist} :: {track} ({position}/{length})", app))
+					fmt.Println(musicwand.FormatStatus("{icon} {artist} :: {track}", player))
+					if c.Bool("watch") {
+						events, _ := client.OnAnyPlayerChange()
+						for {
+							event := <-events
+							player := client.PlayerWithOwner(event.Sender)
+							fmt.Println(musicwand.FormatStatus("{icon} {artist} :: {track}", player))
+						}
+					}
 					return nil
 				},
 			},

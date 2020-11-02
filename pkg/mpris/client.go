@@ -1,8 +1,9 @@
 package mpris
 
 import (
-	"github.com/godbus/dbus/v5"
 	"strings"
+
+	"github.com/godbus/dbus/v5"
 )
 
 type Client struct {
@@ -21,7 +22,7 @@ func (c *Client) Close() {
 	c.conn.Close()
 }
 
-func (c *Client) Apps() (apps []App) {
+func (c *Client) Players() (players []Player) {
 	var list []string
 	err := c.conn.BusObject().Call("org.freedesktop.DBus.ListNames", 0).Store(&list)
 	if err != nil {
@@ -30,27 +31,34 @@ func (c *Client) Apps() (apps []App) {
 	for _, name := range list {
 		if strings.HasPrefix(name, appInterface) {
 			object := c.conn.Object(name, objectPath).(*dbus.Object)
+
 			var owner string
 			c.conn.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, name).Store(&owner)
-			apps = append(apps, App{c.conn, object, name, owner})
+
+			players = append(players, Player{
+				conn:  c.conn,
+				obj:   object,
+				Name:  name,
+				Owner: owner,
+			})
 		}
 	}
 	return
 }
 
-func (c *Client) FindApp(name string) *App {
-	for _, app := range c.Apps() {
-		if strings.HasSuffix(app.Name, name) {
-			return &app
+func (c *Client) FindPlayer(name string) *Player {
+	for _, player := range c.Players() {
+		if strings.HasSuffix(player.Name, name) {
+			return &player
 		}
 	}
 	return nil
 }
 
-func (c *Client) AppWithOwner(owner string) *App {
-	for _, app := range c.Apps() {
-		if app.Owner == owner {
-			return &app
+func (c *Client) PlayerWithOwner(owner string) *Player {
+	for _, player := range c.Players() {
+		if player.Owner == owner {
+			return &player
 		}
 	}
 	return nil

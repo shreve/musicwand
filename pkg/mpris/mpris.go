@@ -1,13 +1,13 @@
 package mpris
 
 import (
-	"github.com/godbus/dbus/v5"
 	"log"
+
+	"github.com/godbus/dbus/v5"
 )
 
 const (
-	objectPath = "/org/mpris/MediaPlayer2"
-
+	objectPath      = "/org/mpris/MediaPlayer2"
 	appInterface    = "org.mpris.MediaPlayer2"
 	playerInterface = "org.mpris.MediaPlayer2.Player"
 )

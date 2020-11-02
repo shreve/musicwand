@@ -3,16 +3,16 @@ package mpris
 import (
 	"encoding/xml"
 	"errors"
-	"github.com/godbus/dbus/v5"
-	"github.com/godbus/dbus/v5/introspect"
 	"log"
 	"strings"
+
+	"github.com/godbus/dbus/v5"
+	"github.com/godbus/dbus/v5/introspect"
 )
 
 const (
 	introspectableInterface = "org.freedesktop.DBus.Introspectable"
 	propertyInterface       = "org.freedesktop.DBus.Properties"
-	peerInterface           = "org.freedesktop.DBus.Peer"
 
 	mprisIntrospectXML = `<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 <node name="/org/mpris/MediaPlayer2">
@@ -108,22 +108,6 @@ var mprisIntrospect = func() (node introspect.Node) {
 	xml.NewDecoder(strings.NewReader(mprisIntrospectXML)).Decode(&node)
 	return
 }()
-
-////
-//// Peer Server
-////
-//// Information about the machine running this DBus service.
-//// This seems to be implemented automatically.
-////
-//type peerServer struct{}
-
-//func (p peerServer) GetMachineId() *dbus.Error {
-//	return nil
-//}
-
-//func (p peerServer) Ping() *dbus.Error {
-//	return nil
-//}
 
 //
 // MPRIS Server

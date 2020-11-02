@@ -1,9 +1,10 @@
 package main
 
 import (
+	"log"
+
 	"github.com/godbus/dbus/v5"
 	"github.com/shreve/musicwand/pkg/mpris"
-	"log"
 )
 
 //
@@ -12,7 +13,7 @@ import (
 // Controls and information about the media player application.
 //
 type appServer struct {
-	client *mpris.App
+	client *mpris.Player
 }
 
 func (a *appServer) Quit() *dbus.Error {
@@ -85,11 +86,11 @@ func (p playerServer) Stop() *dbus.Error {
 // Forwards properties from destination object.
 //
 type propertyHandler struct {
-	client *mpris.App
+	client *mpris.Player
 }
 
 func (p propertyHandler) Get(iface, prop string) (dbus.Variant, *dbus.Error) {
-	result, _ := p.client.Properties().Get(iface, prop)
+	result, _ := p.client.Get(iface, prop)
 	return result, nil
 }
 
@@ -98,48 +99,48 @@ func (p propertyHandler) GetAll(iface string) (map[string]dbus.Variant, *dbus.Er
 	if iface == "org.freedesktop.DBus.Properties" || iface == "com.github.shreve.musicwand" {
 		return nil, nil
 	}
-	result, _ := p.client.Properties().GetAll(iface)
+	result, _ := p.client.GetAll(iface)
 	return result, nil
 }
 
 func (p propertyHandler) Set(iface, prop string, value dbus.Variant) *dbus.Error {
-	p.client.Properties().Set(iface, prop, value)
+	p.client.Set(iface, prop, value)
 	return nil
 }
 
 type State struct {
-	client     mpris.Client
-	CurrentApp mpris.App
+	client        mpris.Client
+	CurrentPlayer mpris.Player
 }
 
-func (s *State) SetCurrentApp(name string) *dbus.Error {
-	newApp := *s.client.FindApp(name)
-	if newApp.Identity() != "" {
-		s.CurrentApp = newApp
+func (s *State) SetCurrentPlayer(name string) *dbus.Error {
+	newPlayer := s.client.FindPlayer(name)
+	if newPlayer != nil {
+		s.CurrentPlayer = *newPlayer
 	} else {
+		return dbus.NewError("Unable to find that app", []interface{}{})
 	}
 	return nil
 }
 
-func (s *State) setApp(app mpris.App) {
-	log.Println("Setting current app to:", app.Name)
-	s.CurrentApp = app
+func (s *State) setPlayer(player mpris.Player) {
+	log.Println("Setting current app to:", player.Name)
+	s.CurrentPlayer = player
 }
 
-func (s *State) selectApp() {
-	apps := s.client.Apps()
-	if len(apps) == 0 {
+func (s *State) selectPlayer() {
+	players := s.client.Players()
+	if len(players) == 0 {
 		log.Fatal("Unable to connect to any music players")
 	}
 
-	for _, app := range apps {
-		player := app.Player()
+	for _, player := range players {
 		if player.PlaybackStatus() == mpris.PlaybackPlaying {
-			s.setApp(app)
+			s.setPlayer(player)
 			return
 		}
 	}
-	s.setApp(apps[0])
+	s.setPlayer(players[0])
 }
 
 //
@@ -159,14 +160,13 @@ func RunDaemon() {
 	}
 
 	state := State{client: *client}
-	state.selectApp()
+	state.selectPlayer()
 
-	app := &state.CurrentApp
-	player := app.Player()
+	player := &state.CurrentPlayer
 
-	server.PropertyHandler = &propertyHandler{app}
-	server.AppServer = &appServer{app}
-	server.PlayerServer = &playerServer{&player}
+	server.PropertyHandler = &propertyHandler{player}
+	server.AppServer = &appServer{player}
+	server.PlayerServer = &playerServer{player}
 
 	server.AddInterface("com.github.shreve.musicwand", &state)
 
@@ -174,9 +174,9 @@ func RunDaemon() {
 		events, _ := client.OnAnyPlayerChange()
 		for {
 			event := <-events
-			app := client.AppWithOwner(event.Sender)
-			if app != nil {
-				state.setApp(*app)
+			player := client.PlayerWithOwner(event.Sender)
+			if player != nil {
+				state.setPlayer(*player)
 			}
 		}
 	}()

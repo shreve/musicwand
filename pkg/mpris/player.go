@@ -1,14 +1,17 @@
 package mpris
 
 import (
-	"github.com/godbus/dbus/v5"
 	"log"
+
+	"github.com/godbus/dbus/v5"
+	"github.com/godbus/dbus/v5/introspect"
 )
 
 type Player struct {
-	conn *dbus.Conn
-	obj  *dbus.Object
-	app  *App
+	Name  string
+	Owner string
+	conn  *dbus.Conn
+	obj   *dbus.Object
 }
 
 type PlaybackState string
@@ -24,9 +27,26 @@ const (
 	LoopPlaylist           = "Playlist"
 )
 
+func (p *Player) Introspect() (*introspect.Node, error) {
+	return introspect.Call(p.obj)
+}
+
 //
 // Methods
 //
+
+// Methods on app: org.mpris.MediaPlayer2
+func (p *Player) Raise() error {
+	call := p.obj.Call(appInterface+".Raise", 0)
+	return call.Err
+}
+
+func (p *Player) Quit() error {
+	call := p.obj.Call(appInterface+".Quit", 0)
+	return call.Err
+}
+
+// Methods on playback: org.mpris.MediaPlayer2.Player
 func (p *Player) Play() error {
 	call := p.obj.Call(playerInterface+".Play", 0)
 	return call.Err
@@ -76,6 +96,50 @@ func (p *Player) SetPosition(trackId string, position int64) error {
 //
 // Properties
 //
+
+// Properties on app: org.mpris.MediaPlayer2
+func (p *Player) Identity() string {
+	return getString(p.obj, appInterface, "Identity")
+}
+
+func (p *Player) DesktopEntry() string {
+	return getString(p.obj, appInterface, "DesktopEntry")
+}
+
+func (p *Player) CanRaise() bool {
+	return getBool(p.obj, appInterface, "CanRaise")
+}
+
+func (p *Player) CanQuit() bool {
+	return getBool(p.obj, appInterface, "CanQuit")
+}
+
+func (p *Player) CanSetFullscreen() bool {
+	return getBool(p.obj, appInterface, "CanSetFullscreen")
+}
+
+func (p *Player) Fullscreen(value ...bool) bool {
+	if len(value) == 1 {
+		setProp(p.obj, appInterface, "Fullscreen", value[0])
+		return value[0]
+	} else {
+		return getBool(p.obj, appInterface, "Fullscreen")
+	}
+}
+
+func (p *Player) HasTrackList() bool {
+	return getBool(p.obj, appInterface, "HasTrackList")
+}
+
+func (p *Player) SupportedUriSchemes() []string {
+	return getStringList(p.obj, appInterface, "SupportedUriSchemes")
+}
+
+func (p *Player) SupportedMimeTypes() []string {
+	return getStringList(p.obj, appInterface, "SupportedMimeTypes")
+}
+
+// Properties on playback: org.mpris.MediaPlayer2.Player
 func (p *Player) Shuffle(value ...bool) bool {
 	if len(value) == 1 {
 		setProp(p.obj, playerInterface, "Shuffle", value[0])
@@ -156,6 +220,9 @@ func (p *Player) CanControl() bool {
 	return getBool(p.obj, playerInterface, "CanControl")
 }
 
+//
+// Signals
+//
 func (p *Player) OnSeek() (chan *dbus.Signal, error) {
 	c := make(chan *dbus.Signal, 10)
 	err := p.conn.AddMatchSignal(

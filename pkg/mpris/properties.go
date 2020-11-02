@@ -1,8 +1,9 @@
 package mpris
 
 import (
-	"github.com/godbus/dbus/v5"
 	"log"
+
+	"github.com/godbus/dbus/v5"
 )
 
 const (
@@ -12,11 +13,7 @@ const (
 	introspectMethod     = "org.freedesktop.DBus.Introspectable.Introspect"
 )
 
-type Properties struct {
-	obj *dbus.Object
-}
-
-func (p Properties) Get(iface, prop string) (result dbus.Variant, err error) {
+func (p *Player) Get(iface, prop string) (result dbus.Variant, err error) {
 	err = p.obj.Call(getPropertyMethod, 0, iface, prop).Store(&result)
 	if err != nil {
 		log.Println("Error getting property: ", err)
@@ -24,7 +21,7 @@ func (p Properties) Get(iface, prop string) (result dbus.Variant, err error) {
 	return
 }
 
-func (p Properties) GetAll(iface string) (result map[string]dbus.Variant, err error) {
+func (p *Player) GetAll(iface string) (result map[string]dbus.Variant, err error) {
 	err = p.obj.Call(getAllPropertyMethod, 0, iface).Store(&result)
 	if err != nil {
 		log.Println("Error getting all properties: ", err, p.obj)
@@ -32,7 +29,7 @@ func (p Properties) GetAll(iface string) (result map[string]dbus.Variant, err er
 	return
 }
 
-func (p Properties) Set(iface, prop string, value interface{}) (err error) {
+func (p *Player) Set(iface, prop string, value interface{}) (err error) {
 	call := p.obj.Call(setPropertyMethod, 0, iface, prop, value)
 	err = call.Err
 	if err != nil {
