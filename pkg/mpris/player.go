@@ -18,9 +18,10 @@ type PlaybackState string
 type LoopState string
 
 const (
-	PlaybackPlaying PlaybackState = "Playing"
-	PlaybackPaused                = "Paused"
-	PlaybackStopped               = "Stopped"
+	PlaybackPlaying     PlaybackState = "Playing"
+	PlaybackPaused                    = "Paused"
+	PlaybackStopped                   = "Stopped"
+	PlaybackUnsupported               = ""
 
 	LoopNone     LoopState = "None"
 	LoopTrack              = "Track"

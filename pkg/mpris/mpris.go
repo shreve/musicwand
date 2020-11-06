@@ -12,6 +12,14 @@ const (
 	playerInterface = "org.mpris.MediaPlayer2.Player"
 )
 
+func DbusError(err error) *dbus.Error {
+	if err != nil {
+		return dbus.MakeFailedError(err)
+	} else {
+		return nil
+	}
+}
+
 func getProp(obj *dbus.Object, iface, prop string) (result dbus.Variant, err error) {
 	err = obj.Call(getPropertyMethod, 0, iface, prop).Store(&result)
 	if err != nil {

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"errors"
 	"log"
+	"os"
+	"os/exec"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/shreve/musicwand/pkg/mpris"
@@ -17,12 +20,16 @@ type appServer struct {
 }
 
 func (a *appServer) Quit() *dbus.Error {
-	a.client.Quit()
+	if a.client != nil {
+		a.client.Quit()
+	}
 	return nil
 }
 
 func (a *appServer) Raise() *dbus.Error {
-	a.client.Raise()
+	if a.client != nil {
+		a.client.Raise()
+	}
 	return nil
 }
 
@@ -36,47 +43,65 @@ type playerServer struct {
 }
 
 func (p playerServer) Next() *dbus.Error {
-	p.client.Next()
+	if p.client != nil {
+		p.client.Next()
+	}
 	return nil
 }
 
 func (p playerServer) OpenUri(uri string) *dbus.Error {
-	p.client.OpenUri(uri)
+	if p.client != nil {
+		p.client.OpenUri(uri)
+	}
 	return nil
 }
 
 func (p playerServer) Pause() *dbus.Error {
-	p.client.Pause()
+	if p.client != nil {
+		p.client.Pause()
+	}
 	return nil
 }
 
 func (p playerServer) Play() *dbus.Error {
-	p.client.Play()
+	if p.client != nil {
+		p.client.Play()
+	}
 	return nil
 }
 
 func (p playerServer) PlayPause() *dbus.Error {
-	p.client.PlayPause()
+	if p.client != nil {
+		p.client.PlayPause()
+	}
 	return nil
 }
 
 func (p playerServer) Previous() *dbus.Error {
-	p.client.Previous()
+	if p.client != nil {
+		p.client.Previous()
+	}
 	return nil
 }
 
 func (p playerServer) Seek(delta int64) *dbus.Error {
-	p.client.Seek(delta)
+	if p.client != nil {
+		p.client.Seek(delta)
+	}
 	return nil
 }
 
 func (p playerServer) SetPosition(trackId string, position int64) *dbus.Error {
-	p.client.SetPosition(trackId, position)
+	if p.client != nil {
+		p.client.SetPosition(trackId, position)
+	}
 	return nil
 }
 
 func (p playerServer) Stop() *dbus.Error {
-	p.client.Stop()
+	if p.client != nil {
+		p.client.Stop()
+	}
 	return nil
 }
 
@@ -90,8 +115,11 @@ type propertyHandler struct {
 }
 
 func (p propertyHandler) Get(iface, prop string) (dbus.Variant, *dbus.Error) {
-	result, _ := p.client.Get(iface, prop)
-	return result, nil
+	if p.client != nil {
+		result, err := p.client.Get(iface, prop)
+		return result, mpris.DbusError(err)
+	}
+	return dbus.MakeVariant(""), nil
 }
 
 func (p propertyHandler) GetAll(iface string) (map[string]dbus.Variant, *dbus.Error) {
@@ -99,31 +127,37 @@ func (p propertyHandler) GetAll(iface string) (map[string]dbus.Variant, *dbus.Er
 	if iface == "org.freedesktop.DBus.Properties" || iface == "com.github.shreve.musicwand" {
 		return nil, nil
 	}
-	result, _ := p.client.GetAll(iface)
-	return result, nil
+	if p.client != nil {
+		result, err := p.client.GetAll(iface)
+		return result, mpris.DbusError(err)
+	}
+	return nil, nil
 }
 
 func (p propertyHandler) Set(iface, prop string, value dbus.Variant) *dbus.Error {
-	p.client.Set(iface, prop, value)
+	if p.client != nil {
+		err := p.client.Set(iface, prop, value)
+		return mpris.DbusError(err)
+	}
 	return nil
 }
 
 type State struct {
 	client        mpris.Client
-	CurrentPlayer mpris.Player
+	CurrentPlayer *mpris.Player
 }
 
 func (s *State) SetCurrentPlayer(name string) *dbus.Error {
 	newPlayer := s.client.FindPlayer(name)
 	if newPlayer != nil {
-		s.CurrentPlayer = *newPlayer
+		s.CurrentPlayer = newPlayer
 	} else {
 		return dbus.NewError("Unable to find that app", []interface{}{})
 	}
 	return nil
 }
 
-func (s *State) setPlayer(player mpris.Player) {
+func (s *State) setPlayer(player *mpris.Player) {
 	log.Println("Setting current app to:", player.Name)
 	s.CurrentPlayer = player
 }
@@ -131,16 +165,17 @@ func (s *State) setPlayer(player mpris.Player) {
 func (s *State) selectPlayer() {
 	players := s.client.Players()
 	if len(players) == 0 {
-		log.Fatal("Unable to connect to any music players")
+		log.Println("Unable to connect to any music players")
+		return
 	}
 
 	for _, player := range players {
 		if player.PlaybackStatus() == mpris.PlaybackPlaying {
-			s.setPlayer(player)
+			s.setPlayer(&player)
 			return
 		}
 	}
-	s.setPlayer(players[0])
+	s.setPlayer(&players[0])
 }
 
 //
@@ -148,6 +183,10 @@ func (s *State) selectPlayer() {
 //
 // The process to perform the work of music wand
 //
+func StartDaemon() {
+	exec.Command(os.Args[0], "daemon").Start()
+}
+
 func RunDaemon() {
 	server, err := mpris.NewServer("musicwand")
 	if err != nil {
@@ -162,7 +201,7 @@ func RunDaemon() {
 	state := State{client: *client}
 	state.selectPlayer()
 
-	player := &state.CurrentPlayer
+	player := state.CurrentPlayer
 
 	server.PropertyHandler = &propertyHandler{player}
 	server.AppServer = &appServer{player}
@@ -176,7 +215,8 @@ func RunDaemon() {
 			event := <-events
 			player := client.PlayerWithOwner(event.Sender)
 			if player != nil {
-				state.setPlayer(*player)
+				state.setPlayer(player)
+				log.Println(*state.CurrentPlayer)
 			}
 		}
 	}()

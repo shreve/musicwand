@@ -9,6 +9,10 @@ import (
 )
 
 func FormatStatus(template string, player *mpris.Player) string {
+	findAndReplace(&template, "{status}", func() string {
+		return string(player.PlaybackStatus())
+	})
+
 	findAndReplace(&template, "{artist}", func() string {
 		return player.RawMetadata()["xesam:artist"].Value().([]string)[0]
 	})

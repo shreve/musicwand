@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"time"
 
 	"github.com/shreve/musicwand/internal/pkg/musicwand"
 	"github.com/shreve/musicwand/pkg/mpris"
@@ -31,9 +32,29 @@ func main() {
 
 			player = client.FindPlayer("musicwand")
 			if player == nil {
-				fmt.Fprintf(os.Stderr, "Couldn't find the musicwand daemon\n")
+				// Autostarting daemon
+				StartDaemon()
+
+				attempts := 3
+				for attempts > 0 {
+					player = client.FindPlayer("musicwand")
+					if player != nil {
+						break
+					}
+					time.Sleep(1 * time.Second)
+					attempts -= 1
+				}
+			}
+
+			if player == nil {
+				fmt.Fprintf(os.Stderr, "Couldn't start the musicwand daemon.\n")
 				os.Exit(1)
 			}
+
+			return nil
+		},
+		After: func(c *cli.Context) error {
+			client.Close()
 			return nil
 		},
 		Flags: []cli.Flag{
@@ -45,6 +66,7 @@ func main() {
 				Aliases: []string{"y"},
 				Usage:   "Instruct the player to play",
 				Action: func(c *cli.Context) error {
+					fmt.Println("player.Play()")
 					player.Play()
 					return nil
 				},
@@ -149,15 +171,21 @@ func main() {
 						Aliases: []string{"w"},
 						Usage:   "Maintain a process that updates the status when it changes",
 					},
+					&cli.StringFlag{
+						Name:    "format",
+						Aliases: []string{"f"},
+						Usage:   "Provide a format string to be filled in with data",
+						Value:   "{icon} {artist} :: {track}",
+					},
 				},
 				Action: func(c *cli.Context) error {
-					fmt.Println(musicwand.FormatStatus("{icon} {artist} :: {track}", player))
+					fmt.Println(musicwand.FormatStatus(c.String("format"), player))
 					if c.Bool("watch") {
 						events, _ := client.OnAnyPlayerChange()
 						for {
 							event := <-events
 							player := client.PlayerWithOwner(event.Sender)
-							fmt.Println(musicwand.FormatStatus("{icon} {artist} :: {track}", player))
+							fmt.Println(musicwand.FormatStatus(c.String("format"), player))
 						}
 					}
 					return nil
