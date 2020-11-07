@@ -6,6 +6,8 @@ func Icon(identity string) rune {
 		return ''
 	case "Mozilla Firefox":
 		return ''
+	case "Chrome":
+		return ''
 	default:
 		return ''
 	}
