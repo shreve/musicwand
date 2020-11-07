@@ -179,13 +179,17 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					fmt.Println(musicwand.FormatStatus(c.String("format"), player))
+					if player != nil {
+						fmt.Println(musicwand.FormatStatus(c.String("format"), player))
+					}
 					if c.Bool("watch") {
 						events, _ := client.OnAnyPlayerChange()
 						for {
 							event := <-events
 							player := client.PlayerWithOwner(event.Sender)
-							fmt.Println(musicwand.FormatStatus(c.String("format"), player))
+							if player != nil {
+								fmt.Println(musicwand.FormatStatus(c.String("format"), player))
+							}
 						}
 					}
 					return nil
