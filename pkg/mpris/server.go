@@ -125,17 +125,23 @@ type Server struct {
 	custom map[string]interface{}
 }
 
+// This interface allows an object to handle all needed requests for
+//   org.freedesktop.DBus.Properties
 type HandlesProperties interface {
 	Get(iface, prop string) (dbus.Variant, *dbus.Error)
 	GetAll(iface string) (map[string]dbus.Variant, *dbus.Error)
 	Set(iface, prop string, value dbus.Variant) *dbus.Error
 }
 
+// This interface allows an object to handle all needed requests for
+//   org.mpris.MediaPlayer2
 type IsApp interface {
 	Quit() *dbus.Error
 	Raise() *dbus.Error
 }
 
+// This interface allows an object to handle all needed requests for
+//   org.mpris.MediaPlayer2.Player
 type IsPlayer interface {
 	Next() *dbus.Error
 	OpenUri(uri string) *dbus.Error
@@ -148,6 +154,7 @@ type IsPlayer interface {
 	Stop() *dbus.Error
 }
 
+// Create a new server with a given name and initialize needed data.
 func NewServer(name string) (*Server, error) {
 	conn, err := dbus.SessionBus()
 	if err != nil {
@@ -158,11 +165,13 @@ func NewServer(name string) (*Server, error) {
 	return &server, nil
 }
 
+// Release the claimed bus name and close the connection.
 func (s *Server) Close() {
 	s.Conn.ReleaseName(appInterface + "." + s.Name)
 	s.Conn.Close()
 }
 
+// Add a custom interface to your server object.
 func (s *Server) AddInterface(name string, handler interface{}) {
 	s.custom[name] = handler
 	customInt := introspect.Interface{
@@ -172,24 +181,27 @@ func (s *Server) AddInterface(name string, handler interface{}) {
 	s.def.Interfaces = append(s.def.Interfaces, customInt)
 }
 
+// Start the server and block.
 func (s *Server) Listen() error {
+
 	// First, publish the introspection of the whole server. This is static.
 	s.Conn.Export(
 		introspect.NewIntrospectable(&s.def),
 		objectPath,
 		introspectableInterface)
 
+	// Export all our known objects as interfaces on the objects.
 	s.Conn.Export(s.PropertyHandler, objectPath, propertyInterface)
 	s.Conn.Export(s.AppServer, objectPath, appInterface)
 	s.Conn.Export(s.PlayerServer, objectPath, playerInterface)
 
+	// Export all our custom interfaces to the object.
 	for name, handler := range s.custom {
 		s.Conn.Export(handler, objectPath, name)
 	}
 
-	serverName := appInterface + "." + s.Name
-
 	// Now let's name our server
+	serverName := appInterface + "." + s.Name
 	reply, err := s.Conn.RequestName(serverName, dbus.NameFlagReplaceExisting)
 	if err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
 		return errors.New("Unable to claim " + serverName)

@@ -1,3 +1,4 @@
+// Package mpris provides a client and server for the MPRIS D-Bus interface.
 package mpris
 
 import (
@@ -12,6 +13,7 @@ const (
 	playerInterface = "org.mpris.MediaPlayer2.Player"
 )
 
+// Convert an error into a dbus failed error if the error exists.
 func DbusError(err error) *dbus.Error {
 	if err != nil {
 		return dbus.MakeFailedError(err)

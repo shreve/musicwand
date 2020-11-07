@@ -13,6 +13,7 @@ const (
 	introspectMethod     = "org.freedesktop.DBus.Introspectable.Introspect"
 )
 
+// Get a given property on a given interface of this object.
 func (p *Player) Get(iface, prop string) (result dbus.Variant, err error) {
 	err = p.obj.Call(getPropertyMethod, 0, iface, prop).Store(&result)
 	if err != nil {
@@ -21,6 +22,7 @@ func (p *Player) Get(iface, prop string) (result dbus.Variant, err error) {
 	return
 }
 
+// Get all properties on a given interface of this object.
 func (p *Player) GetAll(iface string) (result map[string]dbus.Variant, err error) {
 	err = p.obj.Call(getAllPropertyMethod, 0, iface).Store(&result)
 	if err != nil {
@@ -29,6 +31,7 @@ func (p *Player) GetAll(iface string) (result map[string]dbus.Variant, err error
 	return
 }
 
+// Set a given property on a given interface of this object.
 func (p *Player) Set(iface, prop string, value interface{}) (err error) {
 	call := p.obj.Call(setPropertyMethod, 0, iface, prop, value)
 	err = call.Err
